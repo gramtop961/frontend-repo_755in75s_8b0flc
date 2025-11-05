@@ -1,39 +1,74 @@
-import { Minus, Plus, Trash } from 'lucide-react'
+import React from 'react';
 
-export default function OrderCart({ cart, onInc, onDec, onRemove }) {
-  const subtotal = cart.reduce((s, it) => s + it.quantity * it.unit_price, 0)
-  const tax = +(subtotal * 0.1).toFixed(2)
-  const total = +(subtotal + tax).toFixed(2)
+const currency = new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+});
+
+export default function OrderCart({ cart, onInc, onDec, onRemove, onClear }) {
+  const empty = cart.length === 0;
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Order</h2>
-      {cart.length === 0 ? (
-        <div className="text-sm text-gray-500">No items yet. Add from menu.</div>
-      ) : (
-        <div className="space-y-2">
-          {cart.map((it) => (
-            <div key={it.item_id} className="flex items-center justify-between bg-white rounded border p-2">
-              <div>
-                <div className="font-medium">{it.name}</div>
-                <div className="text-xs text-gray-500">${it.unit_price.toFixed(2)} each</div>
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Current Order</h2>
+        <button
+          onClick={onClear}
+          disabled={empty}
+          className="text-sm text-red-600 hover:text-red-700 disabled:opacity-40"
+        >
+          Clear
+        </button>
+      </div>
+      <div className="bg-white rounded-xl shadow border divide-y">
+        {empty ? (
+          <div className="p-6 text-center text-gray-500">No items yet.</div>
+        ) : (
+          cart.map((item) => (
+            <div key={item.id} className="p-4 flex items-center gap-4">
+              <img
+                src={item.imageUrl}
+                alt={item.name}
+                className="h-14 w-14 rounded-md object-cover"
+              />
+              <div className="flex-1">
+                <div className="font-medium text-gray-900">{item.name}</div>
+                <div className="text-xs text-gray-500">{currency.format(item.price)}</div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => onDec(it.item_id)} className="p-1 rounded border hover:bg-gray-50"><Minus size={16} /></button>
-                <div className="w-8 text-center">{it.quantity}</div>
-                <button onClick={() => onInc(it.item_id)} className="p-1 rounded border hover:bg-gray-50"><Plus size={16} /></button>
-                <button onClick={() => onRemove(it.item_id)} className="p-1 rounded border text-red-600 hover:bg-red-50"><Trash size={16} /></button>
+                <button
+                  onClick={() => onDec(item.id)}
+                  className="h-8 w-8 rounded-md border flex items-center justify-center hover:bg-gray-50"
+                >
+                  −
+                </button>
+                <div className="w-8 text-center">{item.quantity}</div>
+                <button
+                  onClick={() => onInc(item.id)}
+                  className="h-8 w-8 rounded-md border flex items-center justify-center hover:bg-gray-50"
+                >
+                  +
+                </button>
               </div>
+              <div className="w-24 text-right font-semibold">
+                {currency.format(item.price * item.quantity)}
+              </div>
+              <button
+                onClick={() => onRemove(item.id)}
+                className="ml-2 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Remove
+              </button>
             </div>
-          ))}
+          ))
+        )}
+      </div>
 
-          <div className="pt-2 border-t text-sm">
-            <div className="flex justify-between"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            <div className="flex justify-between"><span>Tax (10%)</span><span>${tax.toFixed(2)}</span></div>
-            <div className="flex justify-between font-semibold text-gray-900 text-base"><span>Total</span><span>${total.toFixed(2)}</span></div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+      <div className="flex items-center justify-end gap-6">
+        <div className="text-sm text-gray-500">Subtotal</div>
+        <div className="text-lg font-semibold">{currency.format(subtotal)}</div>
+      </div>
+    </section>
+  );
 }

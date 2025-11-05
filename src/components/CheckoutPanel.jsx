@@ -1,64 +1,92 @@
-import { useState } from 'react'
+import React, { useMemo, useState } from 'react';
 
-const API_URL = import.meta.env.VITE_BACKEND_URL || ''
+const currency = new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+});
 
-export default function CheckoutPanel({ cart, onOrderComplete }) {
-  const [tableNumber, setTableNumber] = useState('')
-  const [payment, setPayment] = useState('cash')
-  const [loading, setLoading] = useState(false)
+export default function CheckoutPanel({ cart, onCheckout }) {
+  const [tableNumber, setTableNumber] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [orderNotes, setOrderNotes] = useState('');
 
-  const subtotal = cart.reduce((s, it) => s + it.quantity * it.unit_price, 0)
-  const tax = +(subtotal * 0.1).toFixed(2)
-  const total = +(subtotal + tax).toFixed(2)
+  const totals = useMemo(() => {
+    const subtotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const vat = subtotal * 0.12; // 12% VAT
+    const total = subtotal + vat;
+    return { subtotal, vat, total };
+  }, [cart]);
 
-  const placeOrder = async () => {
-    if (cart.length === 0) return
-    setLoading(true)
-    try {
-      const payload = {
-        table_number: tableNumber || undefined,
-        items: cart.map(it => ({
-          item_id: it.item_id,
-          name: it.name,
-          quantity: it.quantity,
-          unit_price: it.unit_price,
-          notes: it.notes || undefined,
-        })),
-        subtotal: +subtotal.toFixed(2),
-        tax,
-        total,
-        status: 'paid',
-        payment_method: payment,
-      }
-      const res = await fetch(`${API_URL}/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const order = await res.json()
-      if (res.ok) {
-        const rres = await fetch(`${API_URL}/orders/${order._id}/receipt`)
-        const rdata = await rres.json()
-        onOrderComplete(order, rdata.receipt_text)
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const disabled = cart.length === 0 || !tableNumber;
+
+  const placeOrder = () => {
+    const payload = {
+      tableNumber,
+      paymentMethod,
+      orderNotes,
+      items: cart.map(({ id, name, quantity, price }) => ({ id, name, quantity, price })),
+      totals,
+    };
+    onCheckout(payload);
+  };
 
   return (
-    <div className="space-y-3">
-      <h2 className="text-lg font-semibold">Checkout</h2>
-      <input className="w-full px-3 py-2 rounded border" placeholder="Table number / Name" value={tableNumber} onChange={e=>setTableNumber(e.target.value)} />
-      <select className="w-full px-3 py-2 rounded border" value={payment} onChange={e=>setPayment(e.target.value)}>
-        <option value="cash">Cash</option>
-        <option value="card">Card</option>
-      </select>
-      <button onClick={placeOrder} disabled={loading || cart.length===0} className="w-full bg-emerald-600 text-white rounded py-2 font-medium hover:bg-emerald-700 disabled:opacity-60">
-        {loading ? 'Placing Order…' : `Pay $${total.toFixed(2)}`}
-      </button>
-    </div>
-  )
+    <section className="space-y-4">
+      <h2 className="text-xl font-semibold">Checkout</h2>
+
+      <div className="bg-white rounded-xl shadow border p-4 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Table / Name</label>
+            <input
+              value={tableNumber}
+              onChange={(e) => setTableNumber(e.target.value)}
+              placeholder="e.g. Table 5 or Juan D."
+              className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Payment</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option>Cash</option>
+              <option>GCash</option>
+              <option>Credit/Debit Card</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm text-gray-600 mb-1">Notes for Kitchen</label>
+          <textarea
+            value={orderNotes}
+            onChange={(e) => setOrderNotes(e.target.value)}
+            placeholder="Less rice, extra spicy, no peanuts, etc."
+            rows={3}
+            className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="text-gray-500">Subtotal</div>
+          <div className="text-right font-medium">{currency.format(totals.subtotal)}</div>
+          <div className="text-gray-500">VAT (12%)</div>
+          <div className="text-right font-medium">{currency.format(totals.vat)}</div>
+          <div className="text-gray-700">Total</div>
+          <div className="text-right text-lg font-semibold">{currency.format(totals.total)}</div>
+        </div>
+
+        <button
+          disabled={disabled}
+          onClick={placeOrder}
+          className="w-full inline-flex items-center justify-center rounded-lg bg-emerald-600 text-white text-sm font-medium px-4 py-2 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Place order & Print Kitchen Ticket
+        </button>
+      </div>
+    </section>
+  );
 }
